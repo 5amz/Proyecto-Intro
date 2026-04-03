@@ -1,0 +1,17 @@
+nombre,avatar,vida,ataque,defensa
+Leg Eater,leg_eater.png,85,60,15
+Nailsmith,nailsmith.png,120,35,30
+Sly,sly.png,60,100,10
+The Last Stag,the_last_stag.png,140,20,40
+Cloth,cloth.png,100,45,20
+Hornet,hornet.png,90,55,15
+Mister Mushroom,mister_mushroom.png,110,40,20
+Quirel,quirel.png,90,50,20
+Tiso,tiso.png,100,40,30
+Zote the Mighty,zote_the_mighty.png,70,20,20
+Grey Mourner,grey_mourner.png,85,65,10
+Dung Defender,dung_defender.png,120,30,35
+Seer,seer.png,70,80,15
+Hunter,hunter.png,100,50,20
+Snail Shaman,snail_shaman.png,70,70,25
+
