@@ -51,6 +51,7 @@ class Hollow():
         self.nombre = nombre
         self.avatar = avatar
         self.personajes = personajes
+        self.puntaje = 0
 
 #Funcion para cargar los personajes desde el archivo de texto
 def crear_personajes(ruta="personajes.txt"):
@@ -317,8 +318,307 @@ class Pantalla_batalla(tk.Frame):
         self.activo_jugador = None
         self.activo_hollow = random.choice(hollow.personajes)
         self.puntaje_jugador = 0
-        self.puntaje_hollow = 0
+        self.hollow.puntaje = 0
+        self.batalla_iniciada = False
         self.imagenes = []
+
+        #Contruir la ventana
+        arriba = tk.Frame(self, bg="#1a1a2e")
+        arriba.pack(fill="x", pady=(5, 0))
+        arriba.columnconfigure(0, weight=1)
+        arriba.columnconfigure(1, weight=1)
+        self.lbl_puntaje_jugador = tk.Label(arriba, text="", bg="#1a1a2e", fg="white", font=("Arial", 11, "bold"))
+        self.lbl_puntaje_jugador.grid(row=0, column=0, pady=4)
+        self.lbl_puntaje_hollow = tk.Label(arriba, text="", bg="#1a1a2e", fg="white", font=("Arial", 11, "bold"))
+        self.lbl_puntaje_hollow.grid(row=0, column=1, pady=4)
+
+        zona = tk.Frame(self, bg="#0d0d1a")
+        zona.pack(fill="x", padx=10, pady=5)
+        zona.columnconfigure(0, weight=1)
+        zona.columnconfigure(2, weight=1)
+
+        self.panel_jugador = tk.Frame(zona, bg="#16213e", relief="solid", bd=1)
+        self.panel_jugador.grid(row=0, column=0, sticky="nsew", padx=5)
+
+        tk.Label(zona, text="VS", bg="#0d0d1a", fg="white", font=("Arial", 14, "bold")).grid(row=0, column=1, padx=10)
+
+        self.panel_hollow = tk.Frame(zona, bg="#2c1a1a", relief="solid", bd=1)
+        self.panel_hollow.grid(row=0, column=2, sticky="nsew", padx=5)
+
+        frame_log = tk.Frame(self, bg="#0d0d1a")
+        frame_log.pack(fill="both", padx=10, pady=5, expand=True)
+        tk.Label(frame_log, text="📜 Log de batalla", bg="#0d0d1a", fg="#888").pack(anchor="w")
+        self.log_txt = tk.Text(frame_log, height=5, state="disabled", bg="#050510", fg="white", 
+                           font=("Courier", 9), relief="flat")
+        self.log_txt.pack(fill="both", expand=True)
+
+        btn_frame = tk.Frame(self, bg="#0d0d1a")
+        btn_frame.pack(pady=6)
+
+        self.btn_atacar = tk.Button(btn_frame, text="ATACAR", command=self.atacar, bg="#8b0000", fg="white",
+                                    font=("Arial", 10, "bold"), padx=15, pady=6, relief="flat")
+        self.btn_atacar.grid(row=0, column=0, padx=8)
+
+        self.btn_cambiar = tk.Button(btn_frame, text="CAMBIAR", command=self.abrir_cambio, bg="#16213e", fg="white",
+                                     font=("Arial", 10, "bold"), padx=15, pady=6, relief="flat")
+        self.btn_cambiar.grid(row=0, column=1, padx=8)
+
+        self.btn_mostrar_hollow = tk.Button(btn_frame, text="PERSONAJES", command=self.mostrar_hollow, bg="#16213e", fg="white",
+                                     font=("Arial", 10, "bold"), padx=15, pady=6, relief="flat")
+        self.btn_mostrar_hollow.grid(row=0, column=1, padx=8)
+
+        self.deshabilitar_botones()
+        self.log(f"Batalla contra {self.hollow.nombre}!")
+        self.log("Elija su personaje inicial:")
+        self.elegir_personaje()
+
+    def limpiar(self, frame):
+        for wid in frame.winfo_children():
+            wid.destroy()
+
+    def cargar_imagen(self, nombre_archivo, size=(50, 50)):
+        base = os.path.dirname(os.path.abspath(__file__))
+        ruta = os.path.join(base, "img", nombre_archivo)
+        img = Image.open(ruta)
+        img = img.resize(size)
+        foto = ImageTk.PhotoImage(img)
+        self.imagenes.append(foto)
+        return foto
+    
+    def actualizar_pantalla(self):
+        self.imagenes = []
+        self.limpiar(self.panel_jugador)
+        self.limpiar(self.panel_hollow)
+
+        cab_j = tk.Frame(self.panel_jugador, bg="#16213e")
+        cab_j.pack(fill="x", padx=5, pady=5)
+        try:
+            foto_j = self._cargar_imagen(f"{self.avatar_jugador}.png", (40, 40))
+            tk.Label(cab_j, image=foto_j, bg="#16213e").pack(side="left", padx=4)
+        except:
+            pass
+        tk.Label(cab_j, text=self.jugador_nombre, bg="#16213e", fg="#e8a020", font=("Arial", 11, "bold")).pack(side="left")
+        tk.Label(cab_j, text=f"Puntaje: {self.puntaje_jugador}", bg="#16213e", fg="white", font=("Arial", 9)).pack(side="right", padx=5)
+
+        self.tarjeta_personaje(self.panel_jugador, self.activo_jugador, ko=(self.activo_jugador.vida <= 0))
+
+        cab_h = tk.Frame(self.panel_hollow, bg="#2c1a1a")
+        cab_h.pack(fill="x", padx=5, pady=5)
+        try:
+            foto_h = self._cargar_imagen(self.hollow.avatar, (40, 40))
+            tk.Label(cab_h, image=foto_h, bg="#2c1a1a").pack(side="left", padx=4)
+        except:
+            pass
+        tk.Label(cab_h, text=self.hollow.nombre, bg="#2c1a1a", fg="#c0392b", font=("Arial", 11, "bold")).pack(side="left")
+        tk.Label(cab_h, text=f"Puntaje: {self.hollow.puntaje}", bg="#2c1a1a", fg="white", font=("Arial", 9)).pack(side="right", padx=5)
+
+        self.tarjeta_personaje(self.panel_hollow, self.activo_hollow, ko=(self.activo_hollow.vida <= 0))
+
+    def tarjeta_personaje(self, parent, personaje, ko=False):
+        bg = "#3a3a3a" if ko else "#2a4a2a"
+        fg = "#aaa" if ko else "white"
+
+        card = tk.Frame(parent, bg=bg, padx=6, pady=4, relief="groove", bd=2)
+        card.pack(fill="x", padx=5, pady=3)
+
+        try:
+            foto = self.cargar_imagen(personaje.avatar, (45, 45))
+            tk.Label(card, image=foto, bg=bg).pack(side="left", padx=(0, 6))
+        except:
+            tk.Label(card, text="?", bg=bg, fg=fg, width=4).pack(side="left")
+
+        info = tk.Frame(card, bg=bg)
+        info.pack(side="left", fill="x", expand=True)
+
+        estado = " [KO]" if ko else " ◄"
+        tk.Label(info, text=f"{personaje.nombre}{estado}", bg=bg, fg=fg, font=("Arial", 9, "bold"), anchor="w").pack(fill="x")
+        tk.Label(info, text=f"HP: {personaje.vida}/{personaje.vida_max}",
+                bg=bg, fg=fg, font=("Courier", 8), anchor="w").pack(fill="x")
+        tk.Label(info, text=f"ATK: {personaje.ataque}  DEF: {personaje.defensa}",
+                bg=bg, fg=fg, font=("Courier", 8), anchor="w").pack(fill="x")
+        
+    def deshabilitar_botones(self):
+        self.btn_atacar.config(state="disabled")
+        self.btn_cambiar.config(state="disabled")
+        self.btn_mostrar_hollow.config(state="disabled")
+
+    def habilitar_botones(self):
+        self.btn_atacar.config(state="normal")
+        self.btn_cambiar.config(state="normal")
+        self.btn_mostrar_hollow.config(state="normal")
+
+    def batalla(self, turno="jugador"):
+        vivos_hollow = [p for p in self.hollow.personajes]
+        if not vivos_hollow:
+            self.actualizar_pantalla()
+            self.log(f"Felicidades! Derroto a {self.hollow.nombre}.")
+            self.deshabilitar_botones()
+            self.after(1200, lambda: self.callback_fin(True))
+            return
+
+        vivos_jugador = [p for p in self.personajes_jugador]
+        if not vivos_jugador:
+            self.actualizar_pantalla()
+            self.log("Perdio todos tus personajes...")
+            self.deshabilitar_botones()
+            self.after(1200, lambda: self.callback_fin(False))
+            return
+        
+        self.actualizar_pantalla()
+        if turno == "jugador":
+            self.turno_jugador()
+        else:
+            self.after(700, self.turno_hollow)
+
+    def turno_jugador(self):
+        self.habilitar_botones()
+
+    def turno_hollow(self):
+        self.deshabilitar_botones()
+        vivos = [p for p in self.hollow.personajes]
+        if not vivos:
+            self.batalla("jugador")
+            return
+        
+        accion = random.choice(["atacar", "cambiar"])
+        if accion == "cambiar" and len(vivos) > 1:
+            self.activo_hollow = random.choice([p for p in vivos if p is not self.activo_hollow])
+            self.log(f"{self.hollow.nombre} cambia a {self.activo_hollow.nombre}")
+        else:
+            dano = max(1, self.activo_hollow.ataque - self.activo_jugador.defensa)
+            self.activo_jugador.vida = max(0, self.activo_jugador.vida - dano)
+            self.log(f"{self.activo_hollow.nombre} inflige {dano} pts de daño a {self.activo_jugador.nombre}")
+            self.log(f"HP de {self.activo_jugador.nombre}: {self.activo_jugador.vida}")
+            
+            if self.activo_jugador.vida <= 0:
+                self.log(f"{self.activo_jugador.nombre} fue derrotado.")
+                self.hollow.puntaje += 1
+
+                capturado = self.activo_jugador.clonar()
+                capturado.vida = capturado.vida_max
+                self.hollow.personajes.append(capturado)
+                self.log(f"{capturado.nombre} se unió al equipo del Hollow.")
+
+                self.personajes_jugador.remove(self.activo_jugador)
+                self.activo_jugador = None
+
+                vivos_j = [p for p in self.personajes_jugador]
+                if not vivos_j:
+                    self.batalla("hollow")
+                    return
+                self.actualizar_pantalla()
+                self.elegir_personaje()
+
+        self.batalla("jugador")
+
+    def elegir_personaje(self, obligatorio = True):
+        win = tk.Toplevel(self)
+        win.title("Elija su personaje")
+        win.resizable(False, False)
+        win.grab_set() #Bloquea la interacción con otras ventanas
+
+        mensaje = "Su personaje fue derrotado.\n¿A quién envia ahora?" if obligatorio else "¿A quién envia a la batalla?"
+        tk.Label(win, text=mensaje, font=("Arial", 11), pady=10).pack()
+
+        vivos = [p for p in self.personajes_jugador if p is not self.activo_jugador]
+
+        for p in vivos:
+            fila = tk.Frame(win, padx=10, pady=5)
+            fila.pack(fill="x", padx=10)
+
+            try:
+                foto = self.cargar_imagen(p.avatar)
+                tk.Label(fila, image=foto).pack(side="left", padx=(0, 8))
+            except:
+                tk.Label(fila, text="?", width=4).pack(side="left")
+
+            info = tk.Frame(fila)
+            info.pack(side="left", fill="x", expand=True)
+
+            tk.Label(info, text=p.nombre, font=("Arial", 10, "bold"), anchor="w").pack(fill="x")
+            tk.Label(info, text=f"HP: {p.vida}/{p.vida_max}  ATK: {p.ataque}  DEF: {p.defensa}",
+                    font=("Courier", 9), anchor="w").pack(fill="x")
+
+            tk.Button(info, text="Enviar", command=lambda elegido=p: self.confirmar_cambio(elegido, win),
+                    bg="#16213e", fg="white", relief="flat", padx=8, pady=3).pack(anchor="w", pady=(3, 0))
+            
+        if not obligatorio:
+            tk.Button(win, text="Cancelar", command=win.destroy, bg="#3a3a3a", fg="white",
+                    relief="flat", padx=10, pady=6).pack(pady=(0, 10))
+            
+    def atacar(self):
+        dano = max(1, self.activo_jugador.ataque - self.activo_hollow.defensa)
+        self.activo_hollow.vida = max(0, self.activo_hollow.vida - dano)
+        self.log(f"{self.activo_jugador.nombre} inflige {dano} pts de daño a {self.activo_hollow.nombre}")
+        self.log(f"HP de {self.activo_hollow.nombre}: {self.activo_hollow.vida}")
+
+        if self.activo_hollow.vida <= 0:
+            self.log(f"{self.activo_hollow.nombre} fue derrotado.")
+            self.puntaje_jugador += 1
+
+            capturado = self.activo_hollow.clonar()
+            capturado.vida = capturado.vida_max
+            self.personajes_jugador.append(capturado)
+            self.log(f"{capturado.nombre} se unió al equipo de {self.jugador_nombre}.")
+
+            self.hollow.personajes.remove(self.activo_hollow)
+            self.activo_hollow = None
+
+            vivos_hollow = [p for p in self.hollow.personajes]
+            if vivos_hollow:
+                self.activo_hollow = random.choice(vivos_hollow)
+
+        self.batalla("hollow")
+
+    def abrir_cambio(self):
+        vivos = [p for p in self.personajes_jugador if p is not self.activo_jugador]
+        if not vivos:
+            messagebox.showinfo("Sin opciones", "No tiene otros personajes disponibles.")
+            return
+        self.elegir_personaje(obligatorio=False)
+
+    def confirmar_cambio(self, personaje, win):
+        win.destroy()
+        self.activo_jugador = personaje
+        self.log(f"{self.jugador_nombre} envía a {personaje.nombre}")
+        if not self.batalla_iniciada:
+            self.batalla_iniciada = True
+            self.batalla("jugador")
+        else:
+            self.batalla("hollow")
+
+    def mostrar_hollow(self):
+        win = tk.Toplevel(self)
+        win.title(f"Personajes de {self.hollow.nombre}")
+        win.resizable(False, False)
+        win.grab_set()
+        vivos = [p for p in self.hollow.personajes]
+
+        for p in vivos:
+            fila = tk.Frame(win, padx=10, pady=5)
+            fila.pack(fill="x", padx=10)
+
+            try:
+                foto = self.cargar_imagen(p.avatar)
+                tk.Label(fila, image=foto).pack(side="left", padx=(0, 8))
+            except:
+                tk.Label(fila, text="?", width=4).pack(side="left")
+
+            info = tk.Frame(fila)
+            info.pack(side="left", fill="x", expand=True)
+
+            tk.Label(info, text=p.nombre, font=("Arial", 10, "bold"), anchor="w").pack(fill="x")
+            tk.Label(info, text=f"HP: {p.vida}/{p.vida_max}  ATK: {p.ataque}  DEF: {p.defensa}",
+                    font=("Courier", 9), anchor="w").pack(fill="x")
+            
+        tk.Button(win, text="Cancelar", command=win.destroy, bg="#3a3a3a", fg="white", 
+                relief="flat", padx=10, pady=6).pack(pady=(0, 10))
+
+    def log(self, mensaje):
+        self.log_txt.config(state="normal")
+        self.log_txt.insert("end", mensaje + "\n")
+        self.log_txt.see("end")
+        self.log_txt.config(state="disabled")
 
 class Root(tk.Tk):
 
@@ -369,10 +669,12 @@ class Root(tk.Tk):
                                     f"¡Felicidades {self.nombre_jugador}!\n"
                                     "Derrotaste a todos los Hollows.")
                 self.iniciar()
-                return
+            else:
+                self.ir_mapa(self.nombre_jugador, self.avatar_jugador, self.personajes_jugador)
         else:
             messagebox.showwarning("Perdiste", "Perdiste la batalla...")
-        self.ir_mapa(self.nombre_jugador, self.avatar_jugador, self.personajes_jugador)
+            self.iniciar()
+
 
 if __name__ == "__main__":
     root = Root()
