@@ -40,9 +40,9 @@ class Hollow():
     ]
 
     avatars = [
-        "grim.png",
+        "grimm.png",
         "pale_king.png",
-        "hollow_knight",
+        "hollow_knight.png",
         "radiance.png",
         "white_lady.png"
     ]
@@ -309,7 +309,7 @@ class Pantalla_de_mapa(tk.Frame):
         self.callback_batalla(idx)
 
 class Pantalla_batalla(tk.Frame):
-    def __init__(self, master, nombre_jugador, avatar_jugador, personajes_jugador, hollow, callback_fin):
+    def __init__(self, master, nombre_jugador, avatar_jugador, personajes_jugador, hollow, puntaje, callback_fin):
         super().__init__(master)
         self.jugador_nombre = nombre_jugador
         self.avatar_jugador = avatar_jugador
@@ -318,7 +318,7 @@ class Pantalla_batalla(tk.Frame):
         self.personajes_jugador = personajes_jugador
         self.activo_jugador = None
         self.activo_hollow = random.choice(hollow.personajes)
-        self.puntaje_jugador = 0
+        self.puntaje_jugador = puntaje
         self.hollow.puntaje = 0
         self.batalla_iniciada = False
         self.imagenes = []
@@ -453,7 +453,10 @@ class Pantalla_batalla(tk.Frame):
             self.actualizar_pantalla()
             self.log(f"Felicidades! Derroto a {self.hollow.nombre}.")
             self.deshabilitar_botones()
-            self.after(1200, lambda: self.callback_fin(True))
+            for p in self.personajes_jugador:
+                p.vida = p.vida_max
+            self.log(f"Tus personajes se han curado.")
+            self.after(2500, lambda: self.callback_fin(True, self.puntaje_jugador))
             return
 
         vivos_jugador = [p for p in self.personajes_jugador]
@@ -461,7 +464,7 @@ class Pantalla_batalla(tk.Frame):
             self.actualizar_pantalla()
             self.log("Perdio todos tus personajes...")
             self.deshabilitar_botones()
-            self.after(1200, lambda: self.callback_fin(False))
+            self.after(2000, lambda: self.callback_fin(False, self.puntaje_jugador))
             return
         
         self.actualizar_pantalla()
@@ -493,11 +496,15 @@ class Pantalla_batalla(tk.Frame):
             if self.activo_jugador.vida <= 0:
                 self.log(f"{self.activo_jugador.nombre} fue derrotado.")
                 self.hollow.puntaje += 1
-
+                
                 capturado = self.activo_jugador.clonar()
                 capturado.vida = capturado.vida_max
-                self.hollow.personajes.append(capturado)
-                self.log(f"{capturado.nombre} se unió al equipo del Hollow.")
+                nombres_personajes_hollow = [p.nombre for p in self.hollow.personajes]
+                if capturado.nombre not in nombres_personajes_hollow:
+                    self.hollow.personajes.append(capturado)
+                    self.log(f"{capturado.nombre} se unió al equipo del Hollow.")
+                else:
+                    self.log(f"{capturado.nombre} ya está en el equipo del Hollow.")
 
                 self.actualizar_pantalla()
 
@@ -522,10 +529,20 @@ class Pantalla_batalla(tk.Frame):
         mensaje = "¿A quién quiere enviar a la batalla?" if obligatorio else "¿A quién envia a la batalla?"
         tk.Label(win, text=mensaje, font=("Arial", 11), pady=10).pack()
 
+        canvas = tk.Canvas(win, highlightthickness=0)
+        scrollbar = tk.Scrollbar(win, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True, padx=5)
+
+        inner_frame = tk.Frame(canvas)
+        canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+        inner_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
         vivos = [p for p in self.personajes_jugador if p is not self.activo_jugador]
 
         for p in vivos:
-            fila = tk.Frame(win, padx=10, pady=5)
+            fila = tk.Frame(inner_frame, padx=10, pady=5)
             fila.pack(fill="x", padx=10)
 
             try:
@@ -560,9 +577,12 @@ class Pantalla_batalla(tk.Frame):
 
             capturado = self.activo_hollow.clonar()
             capturado.vida = capturado.vida_max
-            self.personajes_jugador.append(capturado)
-            self.log(f"{capturado.nombre} se unió al equipo de {self.jugador_nombre}.")
-
+            nombres_personajes_jugador = [p.nombre for p in self.personajes_jugador]
+            if capturado.nombre not in nombres_personajes_jugador:
+                self.personajes_jugador.append(capturado)
+                self.log(f"{capturado.nombre} se unió al equipo de {self.jugador_nombre}.")
+            else:
+                self.log(f"{capturado.nombre} ya está en el equipo de {self.jugador_nombre}.")
             self.hollow.personajes.remove(self.activo_hollow)
             self.activo_hollow = None
 
@@ -633,6 +653,7 @@ class Root(tk.Tk):
         self.nombre_jugador = ""
         self.avatar_jugador = ""
         self.personajes_jugador = []
+        self.puntaje_jugador = 0
         self.pantalla_actual = None
         self.todos_personajes = crear_personajes()
         self.hollows = []
@@ -647,6 +668,8 @@ class Root(tk.Tk):
 
     def iniciar(self):
         self.hollows = [crear_hollow(Hollow.nombres[i], Hollow.avatars[i], self.todos_personajes) for i in range(5)]
+        self.puntaje_jugador = 0
+        self.hollows_derrotados = set()
         pantalla = Pantalla_de_carga(self, self.ir_mapa)
         self.cambiar_pantalla(pantalla)
 
@@ -655,16 +678,17 @@ class Root(tk.Tk):
         self.avatar_jugador = avatar
         self.personajes_jugador = personajes
         self.hollows_derrotados = hollows_derrotados
-        pantalla = Pantalla_de_mapa(self, nombre, avatar, personajes, hollows_derrotados, self.ir_batalla)
+        pantalla = Pantalla_de_mapa(self, nombre, avatar, personajes, self.hollows_derrotados, self.ir_batalla)
         self.cambiar_pantalla(pantalla)
 
     def ir_batalla(self, idx_hollow):
         hollow = self.hollows[idx_hollow]
-        pantalla = Pantalla_batalla(self, self.nombre_jugador, self.avatar_jugador, self.personajes_jugador, hollow, 
-                                lambda victoria, idx=idx_hollow: self.fin_batalla(victoria, idx))
+        pantalla = Pantalla_batalla(self, self.nombre_jugador, self.avatar_jugador, self.personajes_jugador, hollow, self.puntaje_jugador, 
+                                lambda victoria, puntaje, idx=idx_hollow: self.fin_batalla(victoria, puntaje, idx))
         self.cambiar_pantalla(pantalla)
 
-    def fin_batalla(self, victoria, idx_hollow):
+    def fin_batalla(self, victoria, puntaje, idx_hollow):
+        self.puntaje_jugador = puntaje
         if victoria:
             self.hollows_derrotados.add(idx_hollow)
             if len(self.hollows_derrotados) == 5:
