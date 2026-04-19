@@ -247,7 +247,8 @@ class Pantalla_de_carga(tk.Frame):
             return
         personajes = [self.todos_personajes[i].clonar() for i in self.personajes_seleccionados]
         avatar = self.avatar_elegido.get()
-        self.callback_iniciar(nombre, avatar, personajes)
+        hollows_derrotados = set()
+        self.callback_iniciar(nombre, avatar, personajes, hollows_derrotados)
 
 class Pantalla_de_mapa(tk.Frame):
 
@@ -259,13 +260,13 @@ class Pantalla_de_mapa(tk.Frame):
         ("Queen's Garden", 4),
     ]
 
-    def __init__(self, master, nombre, avatar, personajes, callback_batalla):
+    def __init__(self, master, nombre, avatar, personajes, hollows_derrotados, callback_batalla):
         super().__init__(master)
         self.nombre = nombre
         self.avatar = avatar
         self.personajes = personajes
         self.callback_batalla = callback_batalla
-        self.hollows_derrotados = set()
+        self.hollows_derrotados = hollows_derrotados
 
         #Cargar la imagen del mapa
         self.canvas = tk.Canvas(self, width=800, height=600, highlightthickness=0)
@@ -323,15 +324,6 @@ class Pantalla_batalla(tk.Frame):
         self.imagenes = []
 
         #Contruir la ventana
-        arriba = tk.Frame(self, bg="#1a1a2e")
-        arriba.pack(fill="x", pady=(5, 0))
-        arriba.columnconfigure(0, weight=1)
-        arriba.columnconfigure(1, weight=1)
-        self.lbl_puntaje_jugador = tk.Label(arriba, text="", bg="#1a1a2e", fg="white", font=("Arial", 11, "bold"))
-        self.lbl_puntaje_jugador.grid(row=0, column=0, pady=4)
-        self.lbl_puntaje_hollow = tk.Label(arriba, text="", bg="#1a1a2e", fg="white", font=("Arial", 11, "bold"))
-        self.lbl_puntaje_hollow.grid(row=0, column=1, pady=4)
-
         zona = tk.Frame(self, bg="#0d0d1a")
         zona.pack(fill="x", padx=10, pady=5)
         zona.columnconfigure(0, weight=1)
@@ -363,9 +355,9 @@ class Pantalla_batalla(tk.Frame):
                                      font=("Arial", 10, "bold"), padx=15, pady=6, relief="flat")
         self.btn_cambiar.grid(row=0, column=1, padx=8)
 
-        self.btn_mostrar_hollow = tk.Button(btn_frame, text="PERSONAJES", command=self.mostrar_hollow, bg="#16213e", fg="white",
+        self.btn_mostrar_hollow = tk.Button(btn_frame, text="PERSONAJES", command=self.mostrar_hollow, bg="#216947", fg="white",
                                      font=("Arial", 10, "bold"), padx=15, pady=6, relief="flat")
-        self.btn_mostrar_hollow.grid(row=0, column=1, padx=8)
+        self.btn_mostrar_hollow.grid(row=0, column=2, padx=8)
 
         self.deshabilitar_botones()
         self.log(f"Batalla contra {self.hollow.nombre}!")
@@ -390,29 +382,37 @@ class Pantalla_batalla(tk.Frame):
         self.limpiar(self.panel_jugador)
         self.limpiar(self.panel_hollow)
 
+        #Panel Jugador
         cab_j = tk.Frame(self.panel_jugador, bg="#16213e")
         cab_j.pack(fill="x", padx=5, pady=5)
         try:
-            foto_j = self._cargar_imagen(f"{self.avatar_jugador}.png", (40, 40))
+            foto_j = self.cargar_imagen(f"{self.avatar_jugador}.png", (40, 40))
             tk.Label(cab_j, image=foto_j, bg="#16213e").pack(side="left", padx=4)
         except:
             pass
-        tk.Label(cab_j, text=self.jugador_nombre, bg="#16213e", fg="#e8a020", font=("Arial", 11, "bold")).pack(side="left")
-        tk.Label(cab_j, text=f"Puntaje: {self.puntaje_jugador}", bg="#16213e", fg="white", font=("Arial", 9)).pack(side="right", padx=5)
+        info_j = tk.Frame(cab_j, bg="#16213e")
+        info_j.pack(side="left")
+        tk.Label(info_j, text=self.jugador_nombre, bg="#16213e", fg="#e8a020", font=("Arial", 11, "bold")).pack(side="left")
+        tk.Label(info_j, text=f"Puntaje: {self.puntaje_jugador}", bg="#16213e", fg="white", font=("Arial", 9)).pack(side="right", padx=5)
 
-        self.tarjeta_personaje(self.panel_jugador, self.activo_jugador, ko=(self.activo_jugador.vida <= 0))
+        if self.activo_jugador:
+            self.tarjeta_personaje(self.panel_jugador, self.activo_jugador, ko=(self.activo_jugador.vida <= 0))
 
+        #Panel Hollow
         cab_h = tk.Frame(self.panel_hollow, bg="#2c1a1a")
         cab_h.pack(fill="x", padx=5, pady=5)
         try:
-            foto_h = self._cargar_imagen(self.hollow.avatar, (40, 40))
+            foto_h = self.cargar_imagen(self.hollow.avatar, (40, 40))
             tk.Label(cab_h, image=foto_h, bg="#2c1a1a").pack(side="left", padx=4)
         except:
             pass
-        tk.Label(cab_h, text=self.hollow.nombre, bg="#2c1a1a", fg="#c0392b", font=("Arial", 11, "bold")).pack(side="left")
-        tk.Label(cab_h, text=f"Puntaje: {self.hollow.puntaje}", bg="#2c1a1a", fg="white", font=("Arial", 9)).pack(side="right", padx=5)
+        info_h = tk.Frame(cab_h, bg="#2c1a1a")
+        info_h.pack(side="left")
+        tk.Label(info_h, text=self.hollow.nombre, bg="#2c1a1a", fg="#c0392b", font=("Arial", 11, "bold")).pack(side="left")
+        tk.Label(info_h, text=f"Puntaje: {self.hollow.puntaje}", bg="#2c1a1a", fg="white", font=("Arial", 9)).pack(side="right", padx=5)
 
-        self.tarjeta_personaje(self.panel_hollow, self.activo_hollow, ko=(self.activo_hollow.vida <= 0))
+        if self.activo_hollow:
+            self.tarjeta_personaje(self.panel_hollow, self.activo_hollow, ko=(self.activo_hollow.vida <= 0))
 
     def tarjeta_personaje(self, parent, personaje, ko=False):
         bg = "#3a3a3a" if ko else "#2a4a2a"
@@ -449,7 +449,7 @@ class Pantalla_batalla(tk.Frame):
 
     def batalla(self, turno="jugador"):
         vivos_hollow = [p for p in self.hollow.personajes]
-        if not vivos_hollow:
+        if not vivos_hollow :
             self.actualizar_pantalla()
             self.log(f"Felicidades! Derroto a {self.hollow.nombre}.")
             self.deshabilitar_botones()
@@ -499,6 +499,8 @@ class Pantalla_batalla(tk.Frame):
                 self.hollow.personajes.append(capturado)
                 self.log(f"{capturado.nombre} se unió al equipo del Hollow.")
 
+                self.actualizar_pantalla()
+
                 self.personajes_jugador.remove(self.activo_jugador)
                 self.activo_jugador = None
 
@@ -517,7 +519,7 @@ class Pantalla_batalla(tk.Frame):
         win.resizable(False, False)
         win.grab_set() #Bloquea la interacción con otras ventanas
 
-        mensaje = "Su personaje fue derrotado.\n¿A quién envia ahora?" if obligatorio else "¿A quién envia a la batalla?"
+        mensaje = "¿A quién quiere enviar a la batalla?" if obligatorio else "¿A quién envia a la batalla?"
         tk.Label(win, text=mensaje, font=("Arial", 11), pady=10).pack()
 
         vivos = [p for p in self.personajes_jugador if p is not self.activo_jugador]
@@ -644,15 +646,16 @@ class Root(tk.Tk):
         nueva.pack(fill="both", expand=True)
 
     def iniciar(self):
+        self.hollows = [crear_hollow(Hollow.nombres[i], Hollow.avatars[i], self.todos_personajes) for i in range(5)]
         pantalla = Pantalla_de_carga(self, self.ir_mapa)
         self.cambiar_pantalla(pantalla)
 
-    def ir_mapa(self, nombre, avatar, personajes):
+    def ir_mapa(self, nombre, avatar, personajes, hollows_derrotados):
         self.nombre_jugador = nombre
         self.avatar_jugador = avatar
         self.personajes_jugador = personajes
-        self.hollows = [crear_hollow(Hollow.nombres[i], Hollow.avatars[i], self.todos_personajes) for i in range(5)]
-        pantalla = Pantalla_de_mapa(self, nombre, avatar, personajes, self.ir_batalla)
+        self.hollows_derrotados = hollows_derrotados
+        pantalla = Pantalla_de_mapa(self, nombre, avatar, personajes, hollows_derrotados, self.ir_batalla)
         self.cambiar_pantalla(pantalla)
 
     def ir_batalla(self, idx_hollow):
@@ -670,7 +673,7 @@ class Root(tk.Tk):
                                     "Derrotaste a todos los Hollows.")
                 self.iniciar()
             else:
-                self.ir_mapa(self.nombre_jugador, self.avatar_jugador, self.personajes_jugador)
+                self.ir_mapa(self.nombre_jugador, self.avatar_jugador, self.personajes_jugador, self.hollows_derrotados)
         else:
             messagebox.showwarning("Perdiste", "Perdiste la batalla...")
             self.iniciar()
