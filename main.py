@@ -19,6 +19,7 @@ from PIL import Image, ImageTk
 #Clase para crear los personajes jugables
 class Personaje():
     def __init__(self, nombre, avatar, vida, ataque, defensa):
+        #Atributos de los personajes
         self.nombre = nombre
         self.avatar = avatar
         self.vida_max = int(vida)
@@ -26,9 +27,10 @@ class Personaje():
         self.ataque = int(ataque)
         self.defensa = int(defensa)
 
-    def clonar(self):
+    def clonar(self): #Funcion para clonar al personaje
         return Personaje(self.nombre, self.avatar, self.vida_max, self.ataque, self.defensa)
     
+#Clase para crear los hollows    
 class Hollow():
 
     nombres = [
@@ -48,6 +50,7 @@ class Hollow():
     ]
 
     def __init__(self, nombre, avatar, personajes):
+        #Atributos de los hollows
         self.nombre = nombre
         self.avatar = avatar
         self.personajes = personajes
@@ -56,10 +59,13 @@ class Hollow():
 #Funcion para cargar los personajes desde el archivo de texto
 def crear_personajes(ruta="personajes.txt"):
     personajes = []
+
+    # Convierte una ruta relativa a absoluta
     if not os.path.isabs(ruta):
         base = os.path.dirname(os.path.abspath(__file__))
         ruta = os.path.join(base, ruta)
 
+    #Lee el archivo csv y crea los personajes
     with open(ruta, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -69,6 +75,7 @@ def crear_personajes(ruta="personajes.txt"):
             ))
     return personajes
 
+#Crea el hollow con 3 personajes aleatorios
 def crear_hollow(nombre, avatar, todos_personajes):
     seleccion = random.sample(todos_personajes, 3)
     personajes = [p.clonar() for p in seleccion]
@@ -77,7 +84,8 @@ def crear_hollow(nombre, avatar, todos_personajes):
 #Clase para crear la pantalla de carga
 class Pantalla_de_carga(tk.Frame):
     def __init__(self, master, callback_iniciar):
-        super().__init__(master, bg="blue")
+        super().__init__(master, bg="blue") #Llama al init de tk.Frame como padre de pantalla de carga para que este se tome como un Frame
+        #Atributos de la pantalla de carga
         self.callback_iniciar = callback_iniciar
 
         #Division de la pantalla
@@ -143,9 +151,9 @@ class Pantalla_de_carga(tk.Frame):
         inner_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
         self.imagenes_personajes = []
-        for index, personaje in enumerate(self.todos_personajes):
+        for index, personaje in enumerate(self.todos_personajes): #enumerate() añade un contador automatico a un objeto iterable y devuelve el objeto con los pares índice-valor
             var = tk.BooleanVar()
-            self.check_variables.append(var)
+            self.check_variables.append(var) #Revisar si el personaje esta elejido
 
             fila = tk.Frame(inner_frame)
             fila.pack(fill="x", padx=5, pady=2)
@@ -165,10 +173,8 @@ class Pantalla_de_carga(tk.Frame):
             cb = tk.Checkbutton(
                 fila,
                 text=f"{personaje.nombre}  HP:{personaje.vida_max} ATK:{personaje.ataque} DEF:{personaje.defensa}",
-                variable=var,
-                command=lambda idx=index: self.seleccion_personaje(idx),
-                anchor="w"
-            )
+                variable=var, command=lambda idx=index: self.seleccion_personaje(idx),
+                anchor="w") # Bottones de seleecion 
             cb.pack(side="left", padx=5)
 
         #Iniciar juego
@@ -188,7 +194,7 @@ class Pantalla_de_carga(tk.Frame):
         win.resizable(False, False)
         win.protocol("WM_DELETE_WINDOW", lambda: self.cerrar_about(win))
         info = (
-            "Disney's Epic Adventure\n"
+            "Hollownest's Epic Adventure\n"
             "Proyecto 1 - Introducción a la Programación\n"
             "Tecnológico de Costa Rica\n\n"
             "Profesores:\n"
@@ -202,7 +208,7 @@ class Pantalla_de_carga(tk.Frame):
         tk.Label(win, text=info, justify="center", padx=30, pady=20).pack()
         tk.Button(win, text="Cerrar", command=lambda:self.cerrar_about(win), relief="solid", padx=12, pady=6).pack(pady=10)
 
-    #Función para actualizar la elección del Avatar del jugador
+    #Función para actualizar la elección del Avatar del jugador y enseñar su imagen
     def actualizar_avatar(self):
         seleccion = self.avatar_elegido.get()
 
@@ -228,7 +234,7 @@ class Pantalla_de_carga(tk.Frame):
         if var.get():
             if len(self.personajes_seleccionados) >= 3:
                 var.set(False)
-                messagebox.showwarning("Límite", "Solo podés elegir 3 personajes.")
+                messagebox.showwarning("Límite", "Solo podés elegir 3 personajes.") #Abre una pestaña con un mensaje de error
                 return
             self.personajes_seleccionados.append(idx)
         else:
@@ -240,16 +246,17 @@ class Pantalla_de_carga(tk.Frame):
     def iniciar_juego(self):
         nombre = self.nombre_jugador.get().strip()
         if not nombre:
-            messagebox.showerror("Error", "Ingrese su nombre.")
+            messagebox.showerror("Error", "Ingrese su nombre.") #Si no se ha ingresado el nombre abre un mensaje de error
             return
         if len(self.personajes_seleccionados) != 3:
-            messagebox.showerror("Error", "Tiene que elegir exactamente 3 personajes.")
+            messagebox.showerror("Error", "Tiene que elegir exactamente 3 personajes.") #Si no se han seleccionado exactamente 3 personajes abre un mensaje de error
             return
         personajes = [self.todos_personajes[i].clonar() for i in self.personajes_seleccionados]
         avatar = self.avatar_elegido.get()
         hollows_derrotados = set()
-        self.callback_iniciar(nombre, avatar, personajes, hollows_derrotados)
+        self.callback_iniciar(nombre, avatar, personajes, hollows_derrotados) #Vuelve al Root para continuar
 
+#Clase para crear la pantalla del mapa
 class Pantalla_de_mapa(tk.Frame):
 
     lugares = [
@@ -262,6 +269,7 @@ class Pantalla_de_mapa(tk.Frame):
 
     def __init__(self, master, nombre, avatar, personajes, hollows_derrotados, callback_batalla):
         super().__init__(master)
+        #Atributos de la pantalla del mapa
         self.nombre = nombre
         self.avatar = avatar
         self.personajes = personajes
@@ -278,7 +286,7 @@ class Pantalla_de_mapa(tk.Frame):
         self.img_mapa = ImageTk.PhotoImage(img)
         self.canvas.create_image(0, 0, anchor="nw", image=self.img_mapa)
 
-        #Crear botones de batalla
+        #Crear botones de cada batalla
         coordenadas = {
             "Dirtmouth": (290, 105),
             "Palace Grounds": (500, 555),
@@ -291,26 +299,23 @@ class Pantalla_de_mapa(tk.Frame):
             x, y = coordenadas[nombre_lugar]
             derrotado = idx in self.hollows_derrotados
             btn = tk.Button(
-                self,
-                text=f"{'✔' if derrotado else '⚔'} {nombre_lugar}",
+                self, text=f"{'✔' if derrotado else '⚔'} {nombre_lugar}",
                 command=lambda i=idx, d=derrotado: self.ir_batalla(i, d),
                 bg="#2c2c54" if not derrotado else "#4a4a4a",
-                fg="white" if not derrotado else "#888",
-                relief="flat",
-                padx=6,
-                pady=3,
-                state="normal" if not derrotado else "disabled"
-            )
-            btn.place(x=x, y=y)
+                fg="white" if not derrotado else "#888", relief="flat",
+                padx=6, pady=3, state="normal" if not derrotado else "disabled" ) #Crea los botones y los desabilita si el hollow ya fue derrotado
+            btn.place(x=x, y=y) #Pone los botones en las coordenadas del mapa
 
     def ir_batalla(self, idx, derrotado):
         if derrotado:
             return
-        self.callback_batalla(idx)
+        self.callback_batalla(idx) #Vuelve al Root para continuar a la batalla
 
+#Clase para crear la pantalla de batalla
 class Pantalla_batalla(tk.Frame):
     def __init__(self, master, nombre_jugador, avatar_jugador, personajes_jugador, hollow, puntaje, callback_fin):
         super().__init__(master)
+        #Atributos de la pantalla de batalla
         self.jugador_nombre = nombre_jugador
         self.avatar_jugador = avatar_jugador
         self.hollow = hollow
@@ -329,14 +334,17 @@ class Pantalla_batalla(tk.Frame):
         zona.columnconfigure(0, weight=1)
         zona.columnconfigure(2, weight=1)
 
+        #Panel Jugador
         self.panel_jugador = tk.Frame(zona, bg="#16213e", relief="solid", bd=1)
         self.panel_jugador.grid(row=0, column=0, sticky="nsew", padx=5)
 
         tk.Label(zona, text="VS", bg="#0d0d1a", fg="white", font=("Arial", 14, "bold")).grid(row=0, column=1, padx=10)
 
+        #Panel Hollow
         self.panel_hollow = tk.Frame(zona, bg="#2c1a1a", relief="solid", bd=1)
         self.panel_hollow.grid(row=0, column=2, sticky="nsew", padx=5)
 
+        #Log de batalla
         frame_log = tk.Frame(self, bg="#0d0d1a")
         frame_log.pack(fill="both", padx=10, pady=5, expand=True)
         tk.Label(frame_log, text="📜 Log de batalla", bg="#0d0d1a", fg="#888").pack(anchor="w")
@@ -344,6 +352,7 @@ class Pantalla_batalla(tk.Frame):
                            font=("Courier", 9), relief="flat")
         self.log_txt.pack(fill="both", expand=True)
 
+        #Botones de acción
         btn_frame = tk.Frame(self, bg="#0d0d1a")
         btn_frame.pack(pady=6)
 
@@ -359,30 +368,34 @@ class Pantalla_batalla(tk.Frame):
                                      font=("Arial", 10, "bold"), padx=15, pady=6, relief="flat")
         self.btn_mostrar_hollow.grid(row=0, column=2, padx=8)
 
+        #Empezar batalla
         self.deshabilitar_botones()
         self.log(f"Batalla contra {self.hollow.nombre}!")
         self.log("Elija su personaje inicial:")
         self.elegir_personaje()
 
+    #Limpiar por completo un frame
     def limpiar(self, frame):
         for wid in frame.winfo_children():
             wid.destroy()
 
+    #Funcion para cargar las imagenes
     def cargar_imagen(self, nombre_archivo, size=(50, 50)):
         base = os.path.dirname(os.path.abspath(__file__))
         ruta = os.path.join(base, "img", nombre_archivo)
         img = Image.open(ruta)
         img = img.resize(size)
         foto = ImageTk.PhotoImage(img)
-        self.imagenes.append(foto)
+        self.imagenes.append(foto) #Evitar el garbage collector
         return foto
     
     def actualizar_pantalla(self):
-        self.imagenes = []
+        self.imagenes = [] #Limpiar la lista de imagenes para evitar que se acumulen
+        #Limpar los paneles de jugador y hollow para actualizar la informacion
         self.limpiar(self.panel_jugador)
         self.limpiar(self.panel_hollow)
 
-        #Panel Jugador
+        #Actualizar Panel Jugador
         cab_j = tk.Frame(self.panel_jugador, bg="#16213e")
         cab_j.pack(fill="x", padx=5, pady=5)
         try:
@@ -398,7 +411,7 @@ class Pantalla_batalla(tk.Frame):
         if self.activo_jugador:
             self.tarjeta_personaje(self.panel_jugador, self.activo_jugador, ko=(self.activo_jugador.vida <= 0))
 
-        #Panel Hollow
+        #Actualizar Panel Hollow
         cab_h = tk.Frame(self.panel_hollow, bg="#2c1a1a")
         cab_h.pack(fill="x", padx=5, pady=5)
         try:
@@ -414,6 +427,7 @@ class Pantalla_batalla(tk.Frame):
         if self.activo_hollow:
             self.tarjeta_personaje(self.panel_hollow, self.activo_hollow, ko=(self.activo_hollow.vida <= 0))
 
+    #Funcion para crear una tarjeta con la informacion del personaje del jugador o hollow
     def tarjeta_personaje(self, parent, personaje, ko=False):
         bg = "#3a3a3a" if ko else "#2a4a2a"
         fg = "#aaa" if ko else "white"
@@ -437,17 +451,21 @@ class Pantalla_batalla(tk.Frame):
         tk.Label(info, text=f"ATK: {personaje.ataque}  DEF: {personaje.defensa}",
                 bg=bg, fg=fg, font=("Courier", 8), anchor="w").pack(fill="x")
         
+    #Funcion para desactivar los botones de acción
     def deshabilitar_botones(self):
         self.btn_atacar.config(state="disabled")
         self.btn_cambiar.config(state="disabled")
         self.btn_mostrar_hollow.config(state="disabled")
 
+    #Funcion para activar los botones de acción
     def habilitar_botones(self):
         self.btn_atacar.config(state="normal")
         self.btn_cambiar.config(state="normal")
         self.btn_mostrar_hollow.config(state="normal")
 
+    #Funcion para el ciclo de batalla
     def batalla(self, turno="jugador"):
+        #Si el hollow no tiene personajes, termina la batalla con victoria del jugador
         vivos_hollow = [p for p in self.hollow.personajes]
         if not vivos_hollow :
             self.actualizar_pantalla()
@@ -459,23 +477,28 @@ class Pantalla_batalla(tk.Frame):
             self.after(2500, lambda: self.callback_fin(True, self.puntaje_jugador))
             return
 
+        #Si el jugador no tiene personajes, termina la batalla con victoria del hollow
         vivos_jugador = [p for p in self.personajes_jugador]
         if not vivos_jugador:
             self.actualizar_pantalla()
-            self.log("Perdio todos tus personajes...")
+            self.log("Perdio todos sus personajes...")
             self.deshabilitar_botones()
             self.after(2000, lambda: self.callback_fin(False, self.puntaje_jugador))
             return
         
         self.actualizar_pantalla()
-        if turno == "jugador":
-            self.turno_jugador()
-        else:
-            self.after(700, self.turno_hollow)
 
+        #Si ambos jugadores tienen personajes, continua la batalla dependiendo de de quien sea el turno
+        if turno == "jugador":
+            self.turno_jugador() #Ejecuta turno jugador
+        else:
+            self.after(700, self.turno_hollow) #Ejecuta turno hollow
+
+    #Funcion cuando sea el turno del jugador
     def turno_jugador(self):
         self.habilitar_botones()
 
+    #Funcion cuando sea el turno del hollow
     def turno_hollow(self):
         self.deshabilitar_botones()
         vivos = [p for p in self.hollow.personajes]
@@ -484,16 +507,17 @@ class Pantalla_batalla(tk.Frame):
             return
         
         accion = random.choice(["atacar", "cambiar"])
-        if accion == "cambiar" and len(vivos) > 1:
+        if accion == "cambiar" and len(vivos) > 1: #Puede cambiar si tiene más de un personaje vivo
             self.activo_hollow = random.choice([p for p in vivos if p is not self.activo_hollow])
             self.log(f"{self.hollow.nombre} cambia a {self.activo_hollow.nombre}")
         else:
+            #Le hace daño al personaje activo del jugador
             dano = max(1, self.activo_hollow.ataque - self.activo_jugador.defensa)
             self.activo_jugador.vida = max(0, self.activo_jugador.vida - dano)
             self.log(f"{self.activo_hollow.nombre} inflige {dano} pts de daño a {self.activo_jugador.nombre}")
             self.log(f"HP de {self.activo_jugador.nombre}: {self.activo_jugador.vida}")
             
-            if self.activo_jugador.vida <= 0:
+            if self.activo_jugador.vida <= 0: #Si el personaje del jugador se queda sin vida, pasa a ser un personaje del hollow
                 self.log(f"{self.activo_jugador.nombre} fue derrotado.")
                 self.hollow.puntaje += 1
                 
@@ -508,18 +532,19 @@ class Pantalla_batalla(tk.Frame):
 
                 self.actualizar_pantalla()
 
-                self.personajes_jugador.remove(self.activo_jugador)
+                self.personajes_jugador.remove(self.activo_jugador) #Elimina el personaje derrotado del jugador
                 self.activo_jugador = None
 
                 vivos_j = [p for p in self.personajes_jugador]
-                if not vivos_j:
+                if not vivos_j: #Si el jugador no tiene personajes vivos, llama a batalla para terminar
                     self.batalla("hollow")
                     return
                 self.actualizar_pantalla()
                 self.elegir_personaje()
 
-        self.batalla("jugador")
+        self.batalla("jugador") #Pasa el turno al jugador
 
+    #Funcion para elegir el personaje activo del jugador
     def elegir_personaje(self, obligatorio = True):
         win = tk.Toplevel(self)
         win.title("Elija su personaje")
@@ -529,6 +554,7 @@ class Pantalla_batalla(tk.Frame):
         mensaje = "¿A quién quiere enviar a la batalla?" if obligatorio else "¿A quién envia a la batalla?"
         tk.Label(win, text=mensaje, font=("Arial", 11), pady=10).pack()
 
+        #Scrollbar por su hay muchos personajes
         canvas = tk.Canvas(win, highlightthickness=0)
         scrollbar = tk.Scrollbar(win, orient="vertical", command=canvas.yview)
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -541,6 +567,7 @@ class Pantalla_batalla(tk.Frame):
 
         vivos = [p for p in self.personajes_jugador if p is not self.activo_jugador]
 
+        #Crea una fila por cada personaje del jugador con su información y un botón para elegirlo
         for p in vivos:
             fila = tk.Frame(inner_frame, padx=10, pady=5)
             fila.pack(fill="x", padx=10)
@@ -561,16 +588,19 @@ class Pantalla_batalla(tk.Frame):
             tk.Button(info, text="Enviar", command=lambda elegido=p: self.confirmar_cambio(elegido, win),
                     bg="#16213e", fg="white", relief="flat", padx=8, pady=3).pack(anchor="w", pady=(3, 0))
             
+        #Si la elección no es obligatoria, crear boton para cancelar
         if not obligatorio:
             tk.Button(win, text="Cancelar", command=win.destroy, bg="#3a3a3a", fg="white",
                     relief="flat", padx=10, pady=6).pack(pady=(0, 10))
             
+    #Funcion para atacar al personaje del hollow
     def atacar(self):
         dano = max(1, self.activo_jugador.ataque - self.activo_hollow.defensa)
         self.activo_hollow.vida = max(0, self.activo_hollow.vida - dano)
         self.log(f"{self.activo_jugador.nombre} inflige {dano} pts de daño a {self.activo_hollow.nombre}")
         self.log(f"HP de {self.activo_hollow.nombre}: {self.activo_hollow.vida}")
 
+        #Si el personaje del hollow se queda sin vida, pasa a ser un personaje del jugador
         if self.activo_hollow.vida <= 0:
             self.log(f"{self.activo_hollow.nombre} fue derrotado.")
             self.puntaje_jugador += 1
@@ -586,12 +616,14 @@ class Pantalla_batalla(tk.Frame):
             self.hollow.personajes.remove(self.activo_hollow)
             self.activo_hollow = None
 
+            #El hollow elige un personaje activo aleatorio
             vivos_hollow = [p for p in self.hollow.personajes]
             if vivos_hollow:
                 self.activo_hollow = random.choice(vivos_hollow)
 
-        self.batalla("hollow")
+        self.batalla("hollow") #Pasa el turno al hollow
 
+    #Funcion para abrir la ventana de cambio de personaje
     def abrir_cambio(self):
         vivos = [p for p in self.personajes_jugador if p is not self.activo_jugador]
         if not vivos:
@@ -599,16 +631,18 @@ class Pantalla_batalla(tk.Frame):
             return
         self.elegir_personaje(obligatorio=False)
 
+    #Funcion para confirmar el cambio del personaje activo
     def confirmar_cambio(self, personaje, win):
         win.destroy()
         self.activo_jugador = personaje
         self.log(f"{self.jugador_nombre} envía a {personaje.nombre}")
         if not self.batalla_iniciada:
             self.batalla_iniciada = True
-            self.batalla("jugador")
+            self.batalla("jugador") #Inicia la batalla con el turno del jugador
         else:
-            self.batalla("hollow")
+            self.batalla("hollow") #Pasa el turno al hollow despues de cambiar el personaje
 
+    #Funcion para mostrar la ventana con la información de los personajes del hollow
     def mostrar_hollow(self):
         win = tk.Toplevel(self)
         win.title(f"Personajes de {self.hollow.nombre}")
@@ -636,19 +670,22 @@ class Pantalla_batalla(tk.Frame):
         tk.Button(win, text="Cancelar", command=win.destroy, bg="#3a3a3a", fg="white", 
                 relief="flat", padx=10, pady=6).pack(pady=(0, 10))
 
+    #Función para escribir un mensaje en el log de batalla
     def log(self, mensaje):
         self.log_txt.config(state="normal")
         self.log_txt.insert("end", mensaje + "\n")
         self.log_txt.see("end")
         self.log_txt.config(state="disabled")
 
+#Clase principal del juego, maneja el estado actual del juego y el cambio entre pantallas
 class Root(tk.Tk):
 
     def __init__(self):
         super().__init__()
+        #Atributos del Root
         self.title("Hollownest's Epic Adventure")
         self.geometry("800x600")
-        self.resizable(False, False)
+        self.resizable(False, False) #No permite cambiar el tamaño de la ventana
 
         self.nombre_jugador = ""
         self.avatar_jugador = ""
@@ -660,49 +697,60 @@ class Root(tk.Tk):
         self.hollows_derrotados = set()
         self.iniciar()
 
+    #Funcion para cambiar la pantalla actual del juego
     def cambiar_pantalla(self, nueva):
         if self.pantalla_actual:
-            self.pantalla_actual.destroy()
+            self.pantalla_actual.destroy() #Destruye la pantalla actual
         self.pantalla_actual = nueva
-        nueva.pack(fill="both", expand=True)
+        nueva.pack(fill="both", expand=True) #Muestra la nueva pantalla
 
+    #Función para iniciar el juego
     def iniciar(self):
+        #Crea los hollows con sus personajes, el puntaje del jugador y los hollows derrotados se reinician
         self.hollows = [crear_hollow(Hollow.nombres[i], Hollow.avatars[i], self.todos_personajes) for i in range(5)]
         self.puntaje_jugador = 0
         self.hollows_derrotados = set()
+        #Crea la pantalla de carga
         pantalla = Pantalla_de_carga(self, self.ir_mapa)
         self.cambiar_pantalla(pantalla)
 
+    #Función para ir a la pantalla del mapa
     def ir_mapa(self, nombre, avatar, personajes, hollows_derrotados):
+        #Actualiza los atributos del jugador con la información recibida desde la pantalla de carga
         self.nombre_jugador = nombre
         self.avatar_jugador = avatar
         self.personajes_jugador = personajes
         self.hollows_derrotados = hollows_derrotados
+        #Crea la pantalla del mapa con la información del jugador y los hollows derrotados para mostrar el progreso
         pantalla = Pantalla_de_mapa(self, nombre, avatar, personajes, self.hollows_derrotados, self.ir_batalla)
         self.cambiar_pantalla(pantalla)
 
+    #Función para ir a la pantalla de batalla
     def ir_batalla(self, idx_hollow):
-        hollow = self.hollows[idx_hollow]
+        hollow = self.hollows[idx_hollow] #Obtiene el hollow correspondiente al índice recibido
+        #Crea la pantalla de batalla con la informacion del jugador y el hollow
         pantalla = Pantalla_batalla(self, self.nombre_jugador, self.avatar_jugador, self.personajes_jugador, hollow, self.puntaje_jugador, 
                                 lambda victoria, puntaje, idx=idx_hollow: self.fin_batalla(victoria, puntaje, idx))
         self.cambiar_pantalla(pantalla)
 
+    #Función para cuando termina la batalla
     def fin_batalla(self, victoria, puntaje, idx_hollow):
         self.puntaje_jugador = puntaje
+        #Verifica si gana el jugador
         if victoria:
             self.hollows_derrotados.add(idx_hollow)
-            if len(self.hollows_derrotados) == 5:
+            if len(self.hollows_derrotados) == 5: #Si el jugador derrotó a los 5 hollows, muestra mensaje de victoria y reinicia el juego
                 messagebox.showinfo("¡Ganaste!",
                                     f"¡Felicidades {self.nombre_jugador}!\n"
                                     "Derrotaste a todos los Hollows.")
                 self.iniciar()
-            else:
+            else: #Vuelve al mapa con el información actualizada
                 self.ir_mapa(self.nombre_jugador, self.avatar_jugador, self.personajes_jugador, self.hollows_derrotados)
-        else:
+        else: #Si pierde el jugador, muestra mensaje de derrota y reinicia el juego
             messagebox.showwarning("Perdiste", "Perdiste la batalla...")
             self.iniciar()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": #Ejecuta si es el archivo principal
     root = Root()
-    root.mainloop()
+    root.mainloop() #Mantiene la ventana abierta y espera los eventos
