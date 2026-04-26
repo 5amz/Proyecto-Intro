@@ -466,8 +466,7 @@ class Pantalla_batalla(tk.Frame):
     #Funcion para el ciclo de batalla
     def batalla(self, turno="jugador"):
         #Si el hollow no tiene personajes, termina la batalla con victoria del jugador
-        vivos_hollow = [p for p in self.hollow.personajes]
-        if not vivos_hollow :
+        if not self.hollow.personajes:
             self.actualizar_pantalla()
             self.log(f"Felicidades! Derroto a {self.hollow.nombre}.")
             self.deshabilitar_botones()
@@ -478,8 +477,7 @@ class Pantalla_batalla(tk.Frame):
             return
 
         #Si el jugador no tiene personajes, termina la batalla con victoria del hollow
-        vivos_jugador = [p for p in self.personajes_jugador]
-        if not vivos_jugador:
+        if not self.personajes_jugador:
             self.actualizar_pantalla()
             self.log("Perdio todos sus personajes...")
             self.deshabilitar_botones()
@@ -550,6 +548,10 @@ class Pantalla_batalla(tk.Frame):
         win.title("Elija su personaje")
         win.resizable(False, False)
         win.grab_set() #Bloquea la interacción con otras ventanas
+        win.images = [] #Evitar garbage collector
+
+        if obligatorio:
+            win.protocol("WM_DELETE_WINDOW", lambda: None) #Evitar que cierren la ventana con la X
 
         mensaje = "¿A quién quiere enviar a la batalla?" if obligatorio else "¿A quién envia a la batalla?"
         tk.Label(win, text=mensaje, font=("Arial", 11), pady=10).pack()
@@ -573,7 +575,13 @@ class Pantalla_batalla(tk.Frame):
             fila.pack(fill="x", padx=10)
 
             try:
-                foto = self.cargar_imagen(p.avatar)
+                #Guardar las imagenes en la ventana, evitar el actualizar_pantalla()
+                base = os.path.dirname(os.path.abspath(__file__))
+                ruta = os.path.join(base, "img", p.avatar)
+                img = Image.open(ruta)
+                img = img.resize((50, 50))
+                foto = ImageTk.PhotoImage(img)
+                win.images.append(foto)
                 tk.Label(fila, image=foto).pack(side="left", padx=(0, 8))
             except:
                 tk.Label(fila, text="?", width=4).pack(side="left")
@@ -585,7 +593,7 @@ class Pantalla_batalla(tk.Frame):
             tk.Label(info, text=f"HP: {p.vida}/{p.vida_max}  ATK: {p.ataque}  DEF: {p.defensa}",
                     font=("Courier", 9), anchor="w").pack(fill="x")
 
-            tk.Button(info, text="Enviar", command=lambda elegido=p: self.confirmar_cambio(elegido, win),
+            tk.Button(info, text="Enviar", command=lambda elegido=p, ob=obligatorio: self.confirmar_cambio(elegido, ob, win),
                     bg="#16213e", fg="white", relief="flat", padx=8, pady=3).pack(anchor="w", pady=(3, 0))
             
         #Si la elección no es obligatoria, crear boton para cancelar
@@ -617,9 +625,8 @@ class Pantalla_batalla(tk.Frame):
             self.activo_hollow = None
 
             #El hollow elige un personaje activo aleatorio
-            vivos_hollow = [p for p in self.hollow.personajes]
-            if vivos_hollow:
-                self.activo_hollow = random.choice(vivos_hollow)
+            if self.hollow.personajes:
+                self.activo_hollow = random.choice(self.hollow.personajes)
 
         self.batalla("hollow") #Pasa el turno al hollow
 
@@ -632,13 +639,15 @@ class Pantalla_batalla(tk.Frame):
         self.elegir_personaje(obligatorio=False)
 
     #Funcion para confirmar el cambio del personaje activo
-    def confirmar_cambio(self, personaje, win):
+    def confirmar_cambio(self, personaje, obligatorio, win):
         win.destroy()
         self.activo_jugador = personaje
         self.log(f"{self.jugador_nombre} envía a {personaje.nombre}")
         if not self.batalla_iniciada:
             self.batalla_iniciada = True
             self.batalla("jugador") #Inicia la batalla con el turno del jugador
+        elif obligatorio:
+            self.batalla("jugador") #Turno del jugador si le matan a un personaje y tiene que cambiar
         else:
             self.batalla("hollow") #Pasa el turno al hollow despues de cambiar el personaje
 
@@ -647,15 +656,21 @@ class Pantalla_batalla(tk.Frame):
         win = tk.Toplevel(self)
         win.title(f"Personajes de {self.hollow.nombre}")
         win.resizable(False, False)
-        win.grab_set()
-        vivos = [p for p in self.hollow.personajes]
+        win.grab_set() #Evitar interacción con otras pantallas
+        win.images = [] #Evitar garbage collector
 
-        for p in vivos:
+        for p in self.hollow.personajes:
             fila = tk.Frame(win, padx=10, pady=5)
             fila.pack(fill="x", padx=10)
 
             try:
-                foto = self.cargar_imagen(p.avatar)
+                #Guardar las imagenes en la ventana, evitar el actualizar_pantalla()
+                base = os.path.dirname(os.path.abspath(__file__))
+                ruta = os.path.join(base, "img", p.avatar)
+                img = Image.open(ruta)
+                img = img.resize((50, 50))
+                foto = ImageTk.PhotoImage(img)
+                win.images.append(foto)
                 tk.Label(fila, image=foto).pack(side="left", padx=(0, 8))
             except:
                 tk.Label(fila, text="?", width=4).pack(side="left")
