@@ -58,8 +58,6 @@ class Hollow():
 
 #Funcion para cargar los personajes desde el archivo de texto
 def crear_personajes(ruta="personajes.txt"):
-    personajes = []
-
     # Convierte una ruta relativa a absoluta
     if not os.path.isabs(ruta):
         base = os.path.dirname(os.path.abspath(__file__))
@@ -68,17 +66,34 @@ def crear_personajes(ruta="personajes.txt"):
     #Lee el archivo csv y crea los personajes
     with open(ruta, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        for row in reader:
-            personajes.append(Personaje(
-                row["nombre"], row["avatar"],
-                row["vida"], row["ataque"], row["defensa"]
-            ))
-    return personajes
+        filas = list(reader)
+
+    #Funcion para leer cada fila del archivo de texto
+    def leer_filas(filas, indice=0, personajes=None):
+        if personajes is None:
+            personajes = []
+        if indice >= len(filas): #Caso base donde no quedan filas
+            return personajes
+        col = filas[indice]
+        personajes.append(Personaje(col["nombre"], col["avatar"], col["vida"], col["ataque"], col["defensa"])) #Agrega el personaje
+        return leer_filas(filas, indice + 1, personajes) #Lee la siguiente fila
+
+    return leer_filas(filas, 0, [])
 
 #Crea el hollow con 3 personajes aleatorios
 def crear_hollow(nombre, avatar, todos_personajes):
     seleccion = random.sample(todos_personajes, 3)
-    personajes = [p.clonar() for p in seleccion]
+
+    #Función para clonar los personajes
+    def clonar_personajes(lista, indice=0, resultado=None): 
+        if resultado is None:
+            resultado = []
+        if indice >= len(lista): #Caso base donde ya se clonaron los 3 personajes
+            return resultado
+        resultado.append(lista[indice].clonar())
+        return clonar_personajes(lista, indice + 1, resultado)
+
+    personajes = clonar_personajes(seleccion, 0, [])
     return Hollow(nombre, avatar, personajes)
 
 #Clase para crear la pantalla de carga
@@ -242,6 +257,17 @@ class Pantalla_de_carga(tk.Frame):
                 self.personajes_seleccionados.remove(idx)
         self.lbl_conteo.config(text=f"Seleccionados: {len(self.personajes_seleccionados)}/3")
 
+    #Función para clonar los personajes seleccionados del jugador
+    def clonar_seleccionados(self, lista, indice=0, resultado=None):
+        if resultado is None:
+            resultado = []
+        if indice >= len(lista):
+            return resultado
+        personaje = self.todos_personajes[lista[indice]].clonar()
+        resultado.append(personaje)
+        
+        return self.clonar_seleccionados(lista, indice + 1, resultado)
+
     #Función para iniciar el juego y pasar a la pantalla del mapa
     def iniciar_juego(self):
         nombre = self.nombre_jugador.get().strip()
@@ -251,7 +277,7 @@ class Pantalla_de_carga(tk.Frame):
         if len(self.personajes_seleccionados) != 3:
             messagebox.showerror("Error", "Tiene que elegir exactamente 3 personajes.") #Si no se han seleccionado exactamente 3 personajes abre un mensaje de error
             return
-        personajes = [self.todos_personajes[i].clonar() for i in self.personajes_seleccionados]
+        personajes = self.clonar_seleccionados(self.personajes_seleccionados)
         avatar = self.avatar_elegido.get()
         hollows_derrotados = set()
         self.callback_iniciar(nombre, avatar, personajes, hollows_derrotados) #Vuelve al Root para continuar
@@ -470,8 +496,16 @@ class Pantalla_batalla(tk.Frame):
             self.actualizar_pantalla()
             self.log(f"Felicidades! Derroto a {self.hollow.nombre}.")
             self.deshabilitar_botones()
-            for p in self.personajes_jugador:
-                p.vida = p.vida_max
+
+            #Función para curar los personajes del jugador
+            def curar_personajes(lista, indice=0):
+                if indice >= len(lista): #Caso base enel que ya recorre todos los personajes
+                    return
+                lista[indice].vida = lista[indice].vida_max
+                # Caso recursivo: siguiente personaje
+                curar_personajes(lista, indice + 1)
+
+            curar_personajes(self.personajes_jugador)
             self.log(f"Tus personajes se han curado.")
             self.after(2500, lambda: self.callback_fin(True, self.puntaje_jugador))
             return
@@ -499,14 +533,14 @@ class Pantalla_batalla(tk.Frame):
     #Funcion cuando sea el turno del hollow
     def turno_hollow(self):
         self.deshabilitar_botones()
-        vivos = [p for p in self.hollow.personajes]
+        vivos = self.lista_vivos(self.hollow.personajes)
         if not vivos:
             self.batalla("jugador")
             return
         
         accion = random.choice(["atacar", "cambiar"])
         if accion == "cambiar" and len(vivos) > 1: #Puede cambiar si tiene más de un personaje vivo
-            self.activo_hollow = random.choice([p for p in vivos if p is not self.activo_hollow])
+            self.activo_hollow = random.choice(self.filtrar_personajes(self.hollow.personajes, self.activo_hollow))
             self.log(f"{self.hollow.nombre} cambia a {self.activo_hollow.nombre}")
         else:
             #Le hace daño al personaje activo del jugador
@@ -521,8 +555,7 @@ class Pantalla_batalla(tk.Frame):
                 
                 capturado = self.activo_jugador.clonar()
                 capturado.vida = capturado.vida_max
-                nombres_personajes_hollow = [p.nombre for p in self.hollow.personajes]
-                if capturado.nombre not in nombres_personajes_hollow:
+                if not self.revisar_nombre(self.hollow.personajes, capturado.nombre): #Revisa si el personaje esta en el equipo del hollow
                     self.hollow.personajes.append(capturado)
                     self.log(f"{capturado.nombre} se unió al equipo del Hollow.")
                 else:
@@ -533,7 +566,7 @@ class Pantalla_batalla(tk.Frame):
                 self.personajes_jugador.remove(self.activo_jugador) #Elimina el personaje derrotado del jugador
                 self.activo_jugador = None
 
-                vivos_j = [p for p in self.personajes_jugador]
+                vivos_j = self.lista_vivos(self.personajes_jugador)
                 if not vivos_j: #Si el jugador no tiene personajes vivos, llama a batalla para terminar
                     self.batalla("hollow")
                     return
@@ -567,7 +600,7 @@ class Pantalla_batalla(tk.Frame):
         canvas.create_window((0, 0), window=inner_frame, anchor="nw")
         inner_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
-        vivos = [p for p in self.personajes_jugador if p is not self.activo_jugador]
+        vivos = self.filtrar_personajes(self.personajes_jugador, self.activo_jugador)
 
         #Crea una fila por cada personaje del jugador con su información y un botón para elegirlo
         for p in vivos:
@@ -615,8 +648,7 @@ class Pantalla_batalla(tk.Frame):
 
             capturado = self.activo_hollow.clonar()
             capturado.vida = capturado.vida_max
-            nombres_personajes_jugador = [p.nombre for p in self.personajes_jugador]
-            if capturado.nombre not in nombres_personajes_jugador:
+            if not self.revisar_nombre(self.personajes_jugador, capturado.nombre):
                 self.personajes_jugador.append(capturado)
                 self.log(f"{capturado.nombre} se unió al equipo de {self.jugador_nombre}.")
             else:
@@ -632,7 +664,7 @@ class Pantalla_batalla(tk.Frame):
 
     #Funcion para abrir la ventana de cambio de personaje
     def abrir_cambio(self):
-        vivos = [p for p in self.personajes_jugador if p is not self.activo_jugador]
+        vivos = self.filtrar_personajes(self.personajes_jugador, self.activo_jugador)
         if not vivos:
             messagebox.showinfo("Sin opciones", "No tiene otros personajes disponibles.")
             return
@@ -659,8 +691,19 @@ class Pantalla_batalla(tk.Frame):
         win.grab_set() #Evitar interacción con otras pantallas
         win.images = [] #Evitar garbage collector
 
+        #Scrollbar
+        canvas = tk.Canvas(win, highlightthickness=0)
+        scrollbar = tk.Scrollbar(win, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True, padx=5)
+
+        inner_frame = tk.Frame(canvas)
+        canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+        inner_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
         for p in self.hollow.personajes:
-            fila = tk.Frame(win, padx=10, pady=5)
+            fila = tk.Frame(inner_frame, padx=10, pady=5)
             fila.pack(fill="x", padx=10)
 
             try:
@@ -692,6 +735,34 @@ class Pantalla_batalla(tk.Frame):
         self.log_txt.see("end")
         self.log_txt.config(state="disabled")
 
+    #Función para obtener una lista de los personajes vivos
+    def lista_vivos(self, lista, indice=0, resultado=None):
+        if resultado == None: #Crear lista en la primera llamada
+            resultado = []
+        if indice >= len(lista): #Caso base en el que ya recorre todos los personajes
+            return resultado
+        if lista[indice].vida > 0: #Agrega el personaje si esta vivo
+            resultado.append(lista[indice])
+        return self.lista_vivos(lista, indice + 1, resultado)
+
+    #Función para excluir el personaje activo del jugador
+    def filtrar_personajes(self, lista, excluir, indice=0, resultado=None):
+        if resultado is None: #Crear lista en la primera llamada
+            resultado = []
+        if indice >= len(lista): #Caso base en el que ya recorre todos los personajes
+            return resultado
+        if lista[indice] is not excluir: #Agrega el personaje si no es el que se quiere excluir
+            resultado.append(lista[indice])
+        return self.filtrar_personajes(lista, excluir, indice + 1, resultado)
+    
+    #Función para revisar si un personaje con el mismo nombre ya esta en la lista
+    def revisar_nombre(self, lista, nombre, indice=0):
+        if indice >= len(lista): #Caso base en el que ya recorre todos los personajes
+            return False
+        if lista[indice].nombre == nombre: #Si encuentra un personaje con el mismo nombre devuelve True
+            return True
+        return self.revisar_nombre(lista, nombre, indice + 1)
+
 #Clase principal del juego, maneja el estado actual del juego y el cambio entre pantallas
 class Root(tk.Tk):
 
@@ -719,10 +790,20 @@ class Root(tk.Tk):
         self.pantalla_actual = nueva
         nueva.pack(fill="both", expand=True) #Muestra la nueva pantalla
 
+    #Funcion para crear los hollows
+    def iniciar_hollow(self, nombres, avatars, personajes, indice=0, resultado=None):
+        if resultado is None:
+            resultado = []
+        if indice >= len(nombres):
+            return resultado
+        hollow = crear_hollow(nombres[indice], avatars[indice], personajes)
+        resultado.append(hollow)
+        return self.iniciar_hollow(nombres, avatars, personajes, indice + 1, resultado)
+
     #Función para iniciar el juego
     def iniciar(self):
         #Crea los hollows con sus personajes, el puntaje del jugador y los hollows derrotados se reinician
-        self.hollows = [crear_hollow(Hollow.nombres[i], Hollow.avatars[i], self.todos_personajes) for i in range(5)]
+        self.hollows = self.iniciar_hollow(Hollow.nombres, Hollow.avatars, self.todos_personajes)
         self.puntaje_jugador = 0
         self.hollows_derrotados = set()
         #Crea la pantalla de carga
